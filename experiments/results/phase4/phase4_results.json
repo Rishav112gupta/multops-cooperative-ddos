@@ -1,0 +1,1104 @@
+[
+  {
+    "scenario": "S1_single_router",
+    "title": "Single router sees both directions (symmetric routing)",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 50,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 61,
+    "datagrams_partition_mode": 61,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 0.009999999999999964,
+      "ratio8_max_rel_err": 0.03333333333333335
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 2,
+        "24": 9,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 2,
+        "24": 9,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S2_asym_granularity",
+    "title": "Asymmetric, THRESH 50: R1 expands client to /32, R2 keeps /8",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 50,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 50,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 122,
+    "datagrams_partition_mode": 122,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 46,
+      "ratio8_median_rel_err": 0.009999999999999964,
+      "ratio8_max_rel_err": 0.03333333333333335
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 46
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 46
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S3_asym_baseline",
+    "title": "Asymmetric, THRESH 20: both routers expand (baseline for S4-S9)",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 122,
+    "datagrams_partition_mode": 122,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 0.009999999999999964,
+      "ratio8_max_rel_err": 0.03333333333333335
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S4_interval_mismatch",
+    "title": "S3 + R1 exports every 0.5 s (R2 every 1 s)",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 500,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 183,
+    "datagrams_partition_mode": 183,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 122,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 121,
+          "missing_estimate": 0,
+          "intervals_complete": 122,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 0.99,
+      "ratio8_max_rel_err": 1.0777777777777775
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 20,
+      "max_abs_count_err": 51,
+      "levels": {
+        "8": 7,
+        "24": 4,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.6229508196721312,
+      "ratio_max_rel_err": 0.7183098591549296
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S5_phase_offset",
+    "title": "S3 + R2 export boundaries offset by 0.5 s",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 500,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 123,
+    "datagrams_partition_mode": 123,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 62,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 61,
+          "missing_estimate": 0,
+          "intervals_complete": 62,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 12,
+      "ratio8_median_rel_err": 0.09508196721311468,
+      "ratio8_max_rel_err": Infinity
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 23,
+      "max_abs_count_err": 15,
+      "levels": {
+        "8": 16,
+        "24": 6,
+        "32": 24
+      },
+      "ratio_median_rel_err": 0.3,
+      "ratio_max_rel_err": 5.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 23,
+      "max_abs_count_err": 15,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.4,
+      "ratio_max_rel_err": 2.5
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S6_clock_skew",
+    "title": "S3 + R2 clock 300 ms ahead",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 300,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 122,
+    "datagrams_partition_mode": 122,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 12,
+      "ratio8_median_rel_err": 0.09508196721311468,
+      "ratio8_max_rel_err": Infinity
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 23,
+      "max_abs_count_err": 9,
+      "levels": {
+        "8": 16,
+        "24": 6,
+        "32": 24
+      },
+      "ratio_median_rel_err": 0.3,
+      "ratio_max_rel_err": 1.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 12,
+      "counts_exact": 23,
+      "max_abs_count_err": 21,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.4
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S7_telemetry_loss",
+    "title": "S3 + 20% of R2's datagrams lost",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.2,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 113,
+    "datagrams_partition_mode": 113,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 52,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 9,
+          "intervals_complete": 52,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 9,
+      "ratio8_median_rel_err": 0.010101010101010065,
+      "ratio8_max_rel_err": Infinity
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 9,
+      "one_sided": 0,
+      "counts_exact": 37,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 8,
+        "24": 2,
+        "32": 27
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 9,
+      "one_sided": 0,
+      "counts_exact": 37,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 8,
+        "24": 2,
+        "32": 27
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 48,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S8_duplicates",
+    "title": "S3 + 30% of R1's datagrams duplicated",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.3
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 135,
+    "datagrams_partition_mode": 135,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 13,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 0.009999999999999964,
+      "ratio8_max_rel_err": 1.0375586854460095
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S9_double_observation",
+    "title": "S3 + requests cross R1 and R3 (both count)",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 3,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 183,
+    "datagrams_partition_mode": 183,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 3,
+          "boot_id": 1003,
+          "source": "r3",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 1.010928961748634,
+      "ratio8_max_rel_err": 1.0666666666666667
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 0,
+      "max_abs_count_err": 101,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 1.0,
+      "ratio_max_rel_err": 1.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 0,
+      "max_abs_count_err": 101,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 1.0,
+      "ratio_max_rel_err": 1.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  },
+  {
+    "scenario": "S9b_double_observation_roles",
+    "title": "S9 + proposal roles: only R1 counts requests",
+    "note": "",
+    "routers": [
+      {
+        "rid": 1,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 2,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      },
+      {
+        "rid": 3,
+        "thresh": 20,
+        "interval_ms": 1000,
+        "phase_ms": 0,
+        "skew_ms": 0,
+        "delay_ms": 5,
+        "loss": 0.0,
+        "dup": 0.0
+      }
+    ],
+    "datagrams_all_mode": 183,
+    "datagrams_partition_mode": 183,
+    "receiver": {
+      "streams": [
+        {
+          "router_id": 1,
+          "boot_id": 1001,
+          "source": "r1",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 2,
+          "boot_id": 1002,
+          "source": "r2",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        },
+        {
+          "router_id": 3,
+          "boot_id": 1003,
+          "source": "r3",
+          "accepted": 61,
+          "reordered": 0,
+          "duplicates": 0,
+          "stale": 0,
+          "source_changes": 0,
+          "first_seq": 0,
+          "highest_seq": 60,
+          "missing_estimate": 0,
+          "intervals_complete": 61,
+          "intervals_incomplete": 0,
+          "intervals_inconsistent": 0
+        }
+      ],
+      "malformed": {},
+      "restarts": 0,
+      "pending_intervals": 0,
+      "paper_datagrams": 0
+    },
+    "paper": {
+      "scored": 46,
+      "one_sided": 0,
+      "ratio8_median_rel_err": 1.010928961748634,
+      "ratio8_max_rel_err": 1.0666666666666667
+    },
+    "proposal_sender": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "proposal_arrival": {
+      "scored": 46,
+      "withheld_incomplete": 0,
+      "one_sided": 0,
+      "counts_exact": 46,
+      "max_abs_count_err": 0,
+      "levels": {
+        "8": 9,
+        "24": 2,
+        "32": 35
+      },
+      "ratio_median_rel_err": 0.0,
+      "ratio_max_rel_err": 0.0
+    },
+    "attacker_sender": {
+      "windows": 57,
+      "max_abs_fwd_err": 0,
+      "windows_with_rev": 0
+    }
+  }
+]

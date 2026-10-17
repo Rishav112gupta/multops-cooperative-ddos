@@ -13,7 +13,13 @@
 // Phase 3; the first eight columns are unchanged from Phase 2.)
 //
 // With --send HOST:PORT each interval is also exported as telemetry datagrams
-// (Phase 3), exactly as the Click element would export it.
+// (Phase 3), exactly as the Click element would export it. With --dump FILE
+// the datagrams are written to FILE instead, one per line as
+// "<send_time_ms> <hex>", for offline network simulation (Phase 4).
+//
+// Export boundaries are at PHASE + k*INTERVAL (trace time). --start-ms skips
+// boundaries before the router "starts"; --end-ms keeps exporting (possibly
+// empty) intervals until that time instead of stopping after the last packet.
 //
 // Usage:
 //   multops_replay [--thresh N] [--ratio R] [--memory-kb K] [--interval-ms M]
@@ -43,8 +49,22 @@ void usage() {
                  "usage: multops_replay [--thresh N] [--ratio R] [--memory-kb K] [--interval-ms M]\n"
                  "                      [--mode all|leaves|partition] [--fold-units upstream|persec]\n"
                  "                      [--seed S] [--send HOST:PORT [--format v1|paper]\n"
-                 "                      [--router-id N] [--boot-id N] [--max-payload B]] [trace.csv]\n");
+                 "                      [--router-id N] [--boot-id N] [--max-payload B]]\n"
+                 "                      [--dump FILE] [--start-ms S] [--phase-ms P] [--end-ms E]\n"
+                 "                      [trace.csv]\n");
 }
+
+// Writes datagrams to a file with the (trace-time) moment they were sent.
+struct DumpSink : telemetry::DatagramSink {
+    std::FILE *f = nullptr;
+    uint64_t now_ms = 0;
+    bool send(const uint8_t *data, std::size_t len) override {
+        std::fprintf(f, "%llu ", static_cast<unsigned long long>(now_ms));
+        for (std::size_t i = 0; i < len; ++i) std::fprintf(f, "%02x", data[i]);
+        std::fputc('\n', f);
+        return true;
+    }
+};
 
 void emit(MultopsTree &tree, CollectMode mode, uint64_t t_ms, uint64_t interval_ms,
           telemetry::TelemetryExporter *exporter) {
@@ -71,7 +91,9 @@ int main(int argc, char **argv) {
     uint64_t interval_ms = 1000;
     CollectMode mode = CollectMode::AllActive;
     const char *path = nullptr;
-    std::string send_to;
+    std::string send_to, dump_path;
+    uint64_t start_ms = 0, phase_ms = 0, end_ms = 0;
+    bool have_end = false;
     telemetry::ExporterConfig ex_cfg;
 
     for (int i = 1; i < argc; ++i) {
@@ -97,6 +119,10 @@ int main(int argc, char **argv) {
             else if (m == "persec") config.fold_units = FoldUnits::PerSecond;
             else { usage(); return 2; }
         } else if (a == "--send") send_to = next();
+        else if (a == "--dump") dump_path = next();
+        else if (a == "--start-ms") start_ms = std::strtoull(next(), nullptr, 10);
+        else if (a == "--phase-ms") phase_ms = std::strtoull(next(), nullptr, 10);
+        else if (a == "--end-ms") { end_ms = std::strtoull(next(), nullptr, 10); have_end = true; }
         else if (a == "--format") {
             if (!telemetry::parse_format(next(), &ex_cfg.format)) { usage(); return 2; }
         } else if (a == "--router-id") ex_cfg.router_id = static_cast<uint32_t>(std::strtoul(next(), nullptr, 10));
@@ -121,7 +147,20 @@ int main(int argc, char **argv) {
     }
 
     UdpSender sender;
+    DumpSink dump;
     std::unique_ptr<telemetry::TelemetryExporter> exporter;
+    if (!send_to.empty() && !dump_path.empty()) {
+        std::fprintf(stderr, "--send and --dump are mutually exclusive\n");
+        return 2;
+    }
+    ex_cfg.export_mode = mode == CollectMode::LeavesOnly ? telemetry::ExportMode::Leaves
+                       : mode == CollectMode::Partition  ? telemetry::ExportMode::Partition
+                                                         : telemetry::ExportMode::All;
+    if (!dump_path.empty()) {
+        dump.f = std::fopen(dump_path.c_str(), "w");
+        if (!dump.f) { std::fprintf(stderr, "cannot open %s\n", dump_path.c_str()); return 1; }
+        exporter.reset(new telemetry::TelemetryExporter(ex_cfg, dump));
+    }
     if (!send_to.empty()) {
         std::size_t colon = send_to.rfind(':');
         uint32_t host;
@@ -134,9 +173,6 @@ int main(int argc, char **argv) {
             std::fprintf(stderr, "cannot open UDP sender: %s\n", open_err.c_str());
             return 1;
         }
-        ex_cfg.export_mode = mode == CollectMode::LeavesOnly ? telemetry::ExportMode::Leaves
-                           : mode == CollectMode::Partition  ? telemetry::ExportMode::Partition
-                                                             : telemetry::ExportMode::All;
         exporter.reset(new telemetry::TelemetryExporter(ex_cfg, sender));
     }
 
@@ -144,7 +180,10 @@ int main(int argc, char **argv) {
     MultopsTree tree(config, clock);
     std::printf("interval_end_ms,prefix,len,leaf,fwd_rate,rev_rate,fwd_count,rev_count,residual\n");
 
-    uint64_t next_export = interval_ms, last_ms = 0, packets = 0, lineno = 0;
+    // First boundary strictly after start_ms on the grid phase + k*interval.
+    uint64_t next_export = phase_ms % interval_ms;
+    while (next_export <= start_ms) next_export += interval_ms;
+    uint64_t last_ms = 0, packets = 0, lineno = 0;
     std::string line;
     while (std::getline(*in, line)) {
         ++lineno;
@@ -167,6 +206,7 @@ int main(int argc, char **argv) {
         }
         while (t >= next_export) {  // timer fires before this packet
             clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
+            dump.now_ms = next_export;
             emit(tree, mode, next_export, interval_ms, exporter.get());
             next_export += interval_ms;
         }
@@ -176,8 +216,19 @@ int main(int argc, char **argv) {
         tree.update(addr, f_dir == "F" ? Direction::Forward : Direction::Reverse, value);
         ++packets;
     }
-    clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
-    emit(tree, mode, next_export, interval_ms, exporter.get());
+    if (have_end) {
+        while (next_export <= end_ms) {
+            clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
+            dump.now_ms = next_export;
+            emit(tree, mode, next_export, interval_ms, exporter.get());
+            next_export += interval_ms;
+        }
+    } else {
+        clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
+        dump.now_ms = next_export;
+        emit(tree, mode, next_export, interval_ms, exporter.get());
+    }
+    if (dump.f) std::fclose(dump.f);
 
     std::fprintf(stderr, "packets=%llu tables=%zu counters=%zu memory_bytes=%zu folds=%llu invariants=%s\n",
                  static_cast<unsigned long long>(packets), tree.table_count(), tree.counter_count(),

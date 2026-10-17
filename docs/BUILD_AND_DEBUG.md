@@ -99,7 +99,15 @@ python3 -m aggregator.telemetry_receiver --listen 127.0.0.1:49555 --duration 10 
 
 The input is CSV lines of `time_ms,F|R,addr[,value]`. The output has one CSV block per interval, and a summary goes to stderr. It is deterministic, which makes it the quickest way to debug tree behaviour without Click.
 
-## 5. Debugging tips
+## 5. Phase 4 aggregation analysis
+
+```bash
+python3 -m experiments.phase4.run_phase4 --build build --out experiments/results/phase4
+```
+
+The run is deterministic (seeded, simulated clocks) and takes a few seconds. It writes `phase4_results.json` and `phase4_results.md`. A test checks that the committed JSON reproduces exactly.
+
+## 6. Debugging tips
 
 | Problem | What to do |
 |---|---|
