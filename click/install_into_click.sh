@@ -32,6 +32,8 @@ cp "$REPO"/multops/include/multops/*.hpp "$CLICK_SRC/include/multops/"
 cp "$REPO"/click/elements/coopipratemonitor.hh "$REPO"/click/elements/coopipratemonitor.cc \
    "$REPO"/click/elements/multopscore.cc "$DEST/"
 cp "$REPO"/multops/src/multops_tree.cpp "$DEST/multops_tree_impl.inc"
+cp "$REPO"/multops/src/telemetry.cpp "$DEST/telemetry_impl.inc"
+cp "$REPO"/multops/src/udp_sender.cpp "$DEST/udp_sender_impl.inc"
 echo "installed into $DEST"
 
 if [[ $BUILD -eq 1 ]]; then

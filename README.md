@@ -9,8 +9,9 @@ The paper proposes a cooperative extension of MULTOPS. Click Modular Router inst
 | Phase | Topic | Status |
 |---|---|---|
 | 1 | Repository & research audit | Done: [`docs/PHASE1_RESEARCH_AUDIT.md`](docs/PHASE1_RESEARCH_AUDIT.md) |
-| 2 | MULTOPS / IPRateMonitor re-implementation and verification | Done, awaiting review: [`docs/PHASE2_MULTOPS_VERIFICATION.md`](docs/PHASE2_MULTOPS_VERIFICATION.md) |
-| 3–10 | Telemetry, aggregation, detection, enforcement, experiments, evaluation | Not started |
+| 2 | MULTOPS / IPRateMonitor re-implementation and verification | Done (approved): [`docs/PHASE2_MULTOPS_VERIFICATION.md`](docs/PHASE2_MULTOPS_VERIFICATION.md) |
+| 3 | UDP telemetry protocol (paper format + versioned V1 extension) | Done, awaiting review: [`docs/PHASE3_TELEMETRY_VALIDATION.md`](docs/PHASE3_TELEMETRY_VALIDATION.md) |
+| 4–10 | Aggregation, detection, enforcement, experiments, evaluation | Not started |
 
 The authors' original source code is unavailable. This repository contains a **new implementation** written from the paper and from upstream Click's `IPRateMonitor`, the element the paper says it extended. It is not the authors' code, and results obtained with it are not a reproduction of the paper's results. The paper's reported results (100% detection, 0% false positives) remain unverified claims.
 
@@ -30,10 +31,12 @@ scripts/run_all_tests.sh /path/to/configured/click   # + sanitizers, valgrind, C
 multops/             Click-independent MULTOPS core library (C++14)
 click/elements/      Click elements (CoopIPRateMonitor; PolicyEnforcer in Phase 6)
 click/configs/       Click scripts for experiments (later phases)
-aggregator/          Python aggregator (Phase 4)
-tools/               Offline utilities (multops_replay)
+aggregator/          Python telemetry codec + receiver (Phase 3); aggregator (Phase 4)
+tools/               Offline utilities (multops_replay, telemetry_vectors)
 tests/cpp/           C++ unit and differential tests
+tests/python/        Python unit and integration tests (stdlib unittest)
 tests/click/         Click-level tests
+tests/data/          Sample trace, generated golden vectors
 scripts/             Test runners
 experiments/logs/    Raw logs from experiment runs (never edited by hand)
 experiments/results/ Derived metrics and plots

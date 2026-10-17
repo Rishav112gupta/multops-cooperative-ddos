@@ -8,22 +8,31 @@
 //   value    1 for PACKETS mode, IP length for BYTES mode (optional, default 1)
 //
 // Output (CSV): one block per export interval, like the Click element's timer:
-//     interval_end_ms,prefix,len,leaf,fwd_rate,rev_rate,fwd_count,rev_count
-// followed by a summary line on stderr.
+//     interval_end_ms,prefix,len,leaf,fwd_rate,rev_rate,fwd_count,rev_count,residual
+// followed by a summary line on stderr. (The residual column was appended in
+// Phase 3; the first eight columns are unchanged from Phase 2.)
+//
+// With --send HOST:PORT each interval is also exported as telemetry datagrams
+// (Phase 3), exactly as the Click element would export it.
 //
 // Usage:
 //   multops_replay [--thresh N] [--ratio R] [--memory-kb K] [--interval-ms M]
-//                  [--mode all|leaves] [--fold-units upstream|persec] [--seed S] [trace.csv]
+//                  [--mode all|leaves|partition] [--fold-units upstream|persec] [--seed S]
+//                  [--send HOST:PORT [--format v1|paper] [--router-id N] [--boot-id N]
+//                   [--max-payload BYTES]] [trace.csv]
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
 #include "multops/multops_tree.hpp"
+#include "multops/telemetry.hpp"
+#include "multops/udp_sender.hpp"
 
 using namespace multops;
 
@@ -32,17 +41,25 @@ namespace {
 void usage() {
     std::fprintf(stderr,
                  "usage: multops_replay [--thresh N] [--ratio R] [--memory-kb K] [--interval-ms M]\n"
-                 "                      [--mode all|leaves] [--fold-units upstream|persec]\n"
-                 "                      [--seed S] [trace.csv]\n");
+                 "                      [--mode all|leaves|partition] [--fold-units upstream|persec]\n"
+                 "                      [--seed S] [--send HOST:PORT [--format v1|paper]\n"
+                 "                      [--router-id N] [--boot-id N] [--max-payload B]] [trace.csv]\n");
 }
 
-void emit(MultopsTree &tree, CollectMode mode, uint64_t t_ms) {
-    for (const PrefixStats &r : tree.collect_stats(mode, true)) {
-        std::printf("%llu,%s,%u,%d,%lld,%lld,%llu,%llu\n", static_cast<unsigned long long>(t_ms),
+void emit(MultopsTree &tree, CollectMode mode, uint64_t t_ms, uint64_t interval_ms,
+          telemetry::TelemetryExporter *exporter) {
+    uint64_t unc_f = tree.window_uncounted(Direction::Forward);
+    uint64_t unc_r = tree.window_uncounted(Direction::Reverse);
+    std::vector<PrefixStats> stats = tree.collect_stats(mode, true);
+    if (exporter)
+        exporter->export_interval(stats, unc_f, unc_r, static_cast<uint32_t>(interval_ms),
+                                  t_ms * 1000);
+    for (const PrefixStats &r : stats) {
+        std::printf("%llu,%s,%u,%d,%lld,%lld,%llu,%llu,%d\n", static_cast<unsigned long long>(t_ms),
                     ipv4_to_string(r.prefix).c_str(), r.prefix_len, r.is_leaf ? 1 : 0,
                     static_cast<long long>(r.fwd_rate), static_cast<long long>(r.rev_rate),
                     static_cast<unsigned long long>(r.fwd_count),
-                    static_cast<unsigned long long>(r.rev_count));
+                    static_cast<unsigned long long>(r.rev_count), r.is_residual ? 1 : 0);
     }
 }
 
@@ -54,6 +71,8 @@ int main(int argc, char **argv) {
     uint64_t interval_ms = 1000;
     CollectMode mode = CollectMode::AllActive;
     const char *path = nullptr;
+    std::string send_to;
+    telemetry::ExporterConfig ex_cfg;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -70,13 +89,20 @@ int main(int argc, char **argv) {
             std::string m = next();
             if (m == "all") mode = CollectMode::AllActive;
             else if (m == "leaves") mode = CollectMode::LeavesOnly;
+            else if (m == "partition") mode = CollectMode::Partition;
             else { usage(); return 2; }
         } else if (a == "--fold-units") {
             std::string m = next();
             if (m == "upstream") config.fold_units = FoldUnits::UpstreamScaledPerEpoch;
             else if (m == "persec") config.fold_units = FoldUnits::PerSecond;
             else { usage(); return 2; }
-        } else if (a == "-h" || a == "--help") { usage(); return 0; }
+        } else if (a == "--send") send_to = next();
+        else if (a == "--format") {
+            if (!telemetry::parse_format(next(), &ex_cfg.format)) { usage(); return 2; }
+        } else if (a == "--router-id") ex_cfg.router_id = static_cast<uint32_t>(std::strtoul(next(), nullptr, 10));
+        else if (a == "--boot-id") ex_cfg.boot_id = static_cast<uint32_t>(std::strtoul(next(), nullptr, 10));
+        else if (a == "--max-payload") ex_cfg.max_payload = std::strtoull(next(), nullptr, 10);
+        else if (a == "-h" || a == "--help") { usage(); return 0; }
         else if (!a.empty() && a[0] == '-') { usage(); return 2; }
         else path = argv[i];
     }
@@ -94,9 +120,29 @@ int main(int argc, char **argv) {
         in = &file;
     }
 
+    UdpSender sender;
+    std::unique_ptr<telemetry::TelemetryExporter> exporter;
+    if (!send_to.empty()) {
+        std::size_t colon = send_to.rfind(':');
+        uint32_t host;
+        if (colon == std::string::npos || !parse_ipv4(send_to.substr(0, colon), host)) {
+            std::fprintf(stderr, "--send expects IPv4:PORT\n");
+            return 2;
+        }
+        std::string open_err;
+        if (!sender.open(host, static_cast<uint16_t>(std::atoi(send_to.c_str() + colon + 1)), &open_err)) {
+            std::fprintf(stderr, "cannot open UDP sender: %s\n", open_err.c_str());
+            return 1;
+        }
+        ex_cfg.export_mode = mode == CollectMode::LeavesOnly ? telemetry::ExportMode::Leaves
+                           : mode == CollectMode::Partition  ? telemetry::ExportMode::Partition
+                                                             : telemetry::ExportMode::All;
+        exporter.reset(new telemetry::TelemetryExporter(ex_cfg, sender));
+    }
+
     ManualClock clock;  // epoch = ms >> 3, 125 epochs/s (upstream user level)
     MultopsTree tree(config, clock);
-    std::printf("interval_end_ms,prefix,len,leaf,fwd_rate,rev_rate,fwd_count,rev_count\n");
+    std::printf("interval_end_ms,prefix,len,leaf,fwd_rate,rev_rate,fwd_count,rev_count,residual\n");
 
     uint64_t next_export = interval_ms, last_ms = 0, packets = 0, lineno = 0;
     std::string line;
@@ -121,7 +167,7 @@ int main(int argc, char **argv) {
         }
         while (t >= next_export) {  // timer fires before this packet
             clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
-            emit(tree, mode, next_export);
+            emit(tree, mode, next_export, interval_ms, exporter.get());
             next_export += interval_ms;
         }
         last_ms = t;
@@ -131,11 +177,16 @@ int main(int argc, char **argv) {
         ++packets;
     }
     clock.set_epoch(static_cast<uint32_t>(next_export >> 3));
-    emit(tree, mode, next_export);
+    emit(tree, mode, next_export, interval_ms, exporter.get());
 
     std::fprintf(stderr, "packets=%llu tables=%zu counters=%zu memory_bytes=%zu folds=%llu invariants=%s\n",
                  static_cast<unsigned long long>(packets), tree.table_count(), tree.counter_count(),
                  tree.memory_bytes(), static_cast<unsigned long long>(tree.fold_runs()),
                  tree.check_invariants().empty() ? "ok" : tree.check_invariants().c_str());
+    if (exporter)
+        std::fprintf(stderr, "telemetry: datagrams=%llu bytes=%llu send_failures=%llu\n",
+                     static_cast<unsigned long long>(exporter->total_datagrams()),
+                     static_cast<unsigned long long>(exporter->total_bytes()),
+                     static_cast<unsigned long long>(exporter->total_send_failures()));
     return 0;
 }

@@ -60,6 +60,12 @@ enum class FoldUnits {
 enum class CollectMode {
     AllActive,   // every counter with activity, at every level (/8 ... /32)
     LeavesOnly,  // only counters with no expanded child (deepest view)
+    // Leaves plus one RESIDUAL record per expanded counter carrying the part
+    // of its window count (and rate) that none of its children recorded:
+    // traffic seen before the child level existed, or refused below it by
+    // the memory limit. The exported counts never overlap and sum exactly to
+    // the root-level totals (Phase 3, research extension).
+    Partition,
 };
 
 struct MultopsConfig {
@@ -86,6 +92,7 @@ struct PrefixStats {
     uint32_t prefix = 0;       // host byte order, low bits zeroed
     uint8_t prefix_len = 0;    // 8, 16, 24 or 32
     bool is_leaf = false;      // no expanded child below this counter
+    bool is_residual = false;  // Partition mode: parent minus sum of children
     int64_t fwd_rate = 0;      // EWMA, units/second (truncated, upstream conversion)
     int64_t rev_rate = 0;
     uint64_t fwd_count = 0;    // exact units counted in the current window
@@ -130,7 +137,16 @@ class MultopsTree {
     // The paper's collect_stats_recursive(): walk the tree and return the
     // active prefixes. If reset_window_counts is true, the exact per-window
     // counters are zeroed afterwards (EWMA rates are never reset; they decay).
+    // In Partition mode, residual rates are max(0, parent - sum of child
+    // rates): approximate, because children inherit EWMA state on expansion.
+    // Resetting also zeroes the uncounted-units window below.
     std::vector<PrefixStats> collect_stats(CollectMode mode, bool reset_window_counts);
+
+    // Units in the current window that could not be counted at all because
+    // the memory limit prevented creating their root-level (/8) counter.
+    uint64_t window_uncounted(Direction dir) const {
+        return uncounted_window_[static_cast<unsigned>(dir)];
+    }
 
     // Per-level view for one address, root first (upstream llrpc
     // CLICK_LLRPC_IPRATEMON_FWD_N_REV_AVG). The paper's Lookup(T_local, ip).
@@ -187,6 +203,11 @@ class MultopsTree {
     bool below_fold_threshold(const Counter *c, int64_t thresh) const;
     void collect(Stats *s, uint32_t prefix, unsigned level, CollectMode mode,
                  bool reset_counts, std::vector<PrefixStats> &out);
+    // Partition traversal of one table. Adds the table's totals (counts and
+    // rates of its counters, before reset) to the sums.
+    void collect_partition(Stats *s, uint32_t prefix, unsigned level, bool reset_counts,
+                           std::vector<PrefixStats> &out, uint64_t count_sum[2],
+                           int64_t rate_sum[2]);
     void look(Stats *s, const std::string &ip, std::string &out);
     PrefixStats make_record(Counter *c, uint32_t prefix, unsigned level);
     bool sample();
@@ -205,6 +226,7 @@ class MultopsTree {
     std::size_t counter_count_;
     uint32_t prev_fold_epoch_;  // per instance (upstream: function-static, shared)
     uint64_t fold_runs_;
+    uint64_t uncounted_window_[2];
 };
 
 // Formatting helpers.

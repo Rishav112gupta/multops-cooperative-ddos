@@ -6,6 +6,8 @@
 #include <click/sync.hh>
 #include <vector>
 #include "multops/multops_tree.hpp"
+#include "multops/telemetry.hpp"
+#include "multops/udp_sender.hpp"
 CLICK_DECLS
 
 /*
@@ -70,13 +72,35 @@ Default 0.
 
 =item AGGREGATOR
 
-Aggregator address, "ADDR" or "ADDR:PORT" (default port 49555). Parsed and
-stored in Phase 2; the UDP sender is implemented in Phase 3.
+Aggregator address, "ADDR" or "ADDR:PORT" (default port 49555). If set, every
+export is sent there as UDP telemetry (best effort: no retransmission, no
+delivery guarantee). If not set, exports are only kept in 'snapshot'.
 
 =item EXPORT
 
-ALL (every active counter at every prefix length, the default) or LEAVES
-(only deepest counters).
+ALL (every active counter at every prefix length; the default, kept for
+Phase 2 compatibility -- nested records overlap), LEAVES (deepest counters
+only; can miss traffic counted before a level was expanded) or PARTITION
+(leaves plus residual records; non-overlapping and complete for counts).
+
+=item FORMAT
+
+V1 (default; versioned extension with router id, sequence numbers, rates and
+exact counts) or PAPER (the paper's 6-byte header / 16-byte record layout).
+
+=item ROUTER_ID
+
+32-bit router identifier carried in V1 headers. Default 0.
+
+=item BOOT_ID
+
+32-bit identifier of this router instance, used by receivers to detect
+restarts (sequence numbers restart at 0). Default: random at initialization.
+
+=item MAX_PAYLOAD
+
+Largest UDP payload to send, in bytes. Default 1472 (no IP fragmentation on
+a 1500-byte MTU). Larger exports are split into fragments.
 
 =item FOLD_UNITS
 
@@ -96,7 +120,7 @@ Rates (per second) of every active prefix, as upstream. First line: epochs
 
 =h snapshot read-only
 
-CSV of the most recent export: prefix/len,leaf,fwd_rate,rev_rate,fwd_count,rev_count.
+CSV of the most recent export: prefix/len,leaf,fwd_rate,rev_rate,fwd_count,rev_count,residual.
 
 =h lookup read-only (with parameter)
 
@@ -105,6 +129,11 @@ Per-level rates for an address: "lookup ADDR".
 =h stats read-only
 
 Tables, counters, memory bytes, fold runs, exports.
+
+=h tx_datagrams, tx_bytes, tx_failures, next_sequence, next_interval_id read-only
+
+Telemetry sender counters (tx_failures counts datagrams the local socket
+refused; it says nothing about delivery).
 
 =h thresh, mem, memmax, exports read-only
 
@@ -159,6 +188,11 @@ class CoopIPRateMonitor : public Element { public:
     bool _count_packets;
     bool _anno;
     multops::CollectMode _export_mode;
+    multops::telemetry::ExporterConfig _ex_cfg;
+    bool _boot_id_set;
+    multops::UdpSender *_sender;
+    multops::telemetry::TelemetryExporter *_exporter;
+    Timestamp _last_export;
     uint32_t _interval_msec;
     Timer _timer;
     bool _have_aggregator;

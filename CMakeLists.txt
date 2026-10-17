@@ -18,12 +18,12 @@ if(MULTOPS_SANITIZE)
 endif()
 
 # Core library (no Click dependency).
-add_library(multops STATIC multops/src/multops_tree.cpp)
+add_library(multops STATIC multops/src/multops_tree.cpp multops/src/telemetry.cpp multops/src/udp_sender.cpp)
 target_include_directories(multops PUBLIC multops/include)
 
 # Unit tests.
 enable_testing()
-foreach(t test_rate_ewma test_multops_tree)
+foreach(t test_rate_ewma test_multops_tree test_telemetry)
   add_executable(${t} tests/cpp/${t}.cpp)
   target_link_libraries(${t} multops)
   add_test(NAME ${t} COMMAND ${t})
@@ -50,3 +50,21 @@ target_link_libraries(multops_replay multops)
 add_test(NAME replay_sample_trace
          COMMAND multops_replay --thresh 100 --interval-ms 1000 ${CMAKE_SOURCE_DIR}/tests/data/sample_trace.csv)
 set_tests_properties(replay_sample_trace PROPERTIES PASS_REGULAR_EXPRESSION "invariants=ok")
+
+# Cross-language golden vectors (Phase 3). The committed file must equal the
+# tool's current output.
+add_executable(telemetry_vectors tools/telemetry_vectors.cpp)
+target_link_libraries(telemetry_vectors multops)
+add_test(NAME telemetry_vectors_up_to_date
+         COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:telemetry_vectors>
+                 -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/data/telemetry_vectors.jsonl
+                 -P ${CMAKE_SOURCE_DIR}/tests/cmake/compare_output.cmake)
+
+# Python tests (stdlib unittest). Integration tests use the binaries built here.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+  add_test(NAME python_tests
+           COMMAND ${Python3_EXECUTABLE} -m unittest discover -s tests/python -t . -v
+           WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  set_tests_properties(python_tests PROPERTIES ENVIRONMENT "MULTOPS_BUILD_DIR=${CMAKE_BINARY_DIR}")
+endif()

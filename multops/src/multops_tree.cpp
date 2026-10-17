@@ -63,6 +63,7 @@ MultopsTree::MultopsTree(const MultopsConfig &config, const Clock &clock)
       counter_count_(0),
       prev_fold_epoch_(clock.now_epoch()),
       fold_runs_(0) {
+    uncounted_window_[0] = uncounted_window_[1] = 0;
     // RATIO is parsed upstream with FixedPointArg(16); invalid values are
     // clamped here (the Click element rejects them in configure()).
     double r = config.sample_ratio;
@@ -153,8 +154,13 @@ UpdateResult MultopsTree::update(uint32_t addr, Direction dir, uint32_t value) {
     for (bitshift = 24; bitshift >= 0; bitshift -= 8) {
         unsigned char byte = static_cast<unsigned char>((addr >> bitshift) & 255);
         c = s->counter[byte];
-        if (!c && !(c = make_counter(s, byte, nullptr)))
-            return result;  // memory limit: stop here, like upstream
+        if (!c && !(c = make_counter(s, byte, nullptr))) {
+            // Memory limit: stop here, like upstream. At the root the packet
+            // is not counted anywhere; remember that for coverage accounting.
+            if (bitshift == 24)
+                uncounted_window_[idx] += value;
+            return result;
+        }
         if (update_ewma)
             c->rates.update(now, value, idx);
         // Exact per-window count: every packet, independent of RATIO sampling.
@@ -299,9 +305,52 @@ void MultopsTree::collect(Stats *s, uint32_t prefix, unsigned level, CollectMode
     }
 }
 
+void MultopsTree::collect_partition(Stats *s, uint32_t prefix, unsigned level, bool reset_counts,
+                                    std::vector<PrefixStats> &out, uint64_t count_sum[2],
+                                    int64_t rate_sum[2]) {
+    const uint32_t now = clock_.now_epoch();
+    for (int i = 0; i < Stats::kMaxCounters; ++i) {
+        Counter *c = s->counter[i];
+        if (!c) continue;
+        uint32_t p = prefix | (static_cast<uint32_t>(i) << (24 - 8 * level));
+        c->rates.advance_to(now);
+        PrefixStats r = make_record(c, p, level);
+        // Totals of this counter go to the caller before any reset.
+        count_sum[0] += r.fwd_count;
+        count_sum[1] += r.rev_count;
+        rate_sum[0] += r.fwd_rate;
+        rate_sum[1] += r.rev_rate;
+        if (c->next_level) {
+            uint64_t child_counts[2] = {0, 0};
+            int64_t child_rates[2] = {0, 0};
+            collect_partition(c->next_level, p, level + 1, reset_counts, out, child_counts,
+                              child_rates);
+            // Every update that reaches a child also updated this counter in
+            // the same window, so the count residual is never negative.
+            r.is_residual = true;
+            r.fwd_count -= child_counts[0];
+            r.rev_count -= child_counts[1];
+            r.fwd_rate = r.fwd_rate > child_rates[0] ? r.fwd_rate - child_rates[0] : 0;
+            r.rev_rate = r.rev_rate > child_rates[1] ? r.rev_rate - child_rates[1] : 0;
+        }
+        if (r.fwd_count || r.rev_count || r.fwd_rate > 0 || r.rev_rate > 0)
+            out.push_back(r);
+        if (reset_counts)
+            c->window_count[0] = c->window_count[1] = 0;
+    }
+}
+
 std::vector<PrefixStats> MultopsTree::collect_stats(CollectMode mode, bool reset_window_counts) {
     std::vector<PrefixStats> out;
-    collect(base_, 0, 0, mode, reset_window_counts, out);
+    if (mode == CollectMode::Partition) {
+        uint64_t counts[2] = {0, 0};
+        int64_t rates[2] = {0, 0};
+        collect_partition(base_, 0, 0, reset_window_counts, out, counts, rates);
+    } else {
+        collect(base_, 0, 0, mode, reset_window_counts, out);
+    }
+    if (reset_window_counts)
+        uncounted_window_[0] = uncounted_window_[1] = 0;
     return out;
 }
 

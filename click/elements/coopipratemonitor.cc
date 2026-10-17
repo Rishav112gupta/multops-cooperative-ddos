@@ -14,10 +14,12 @@
 #include <click/packet_anno.hh>
 #include <clicknet/ip.h>
 #include <limits.h>
+#include <random>
 CLICK_DECLS
 
 namespace {
 enum { h_look, h_snapshot, h_stats, h_thresh, h_mem, h_memmax, h_exports,
+       h_tx_datagrams, h_tx_bytes, h_tx_failures, h_next_sequence, h_next_interval,
        h_reset, h_memmax_w, h_export_now };
 const uint16_t kDefaultAggregatorPort = 49555;   // paper Sec. 5.1
 
@@ -28,7 +30,8 @@ int32_t clamp_anno(int64_t v) {
 
 CoopIPRateMonitor::CoopIPRateMonitor()
     : _tree(0), _count_packets(true), _anno(true),
-      _export_mode(multops::CollectMode::AllActive), _interval_msec(0),
+      _export_mode(multops::CollectMode::AllActive), _boot_id_set(false), _sender(0),
+      _exporter(0), _interval_msec(0),
       _timer(this), _have_aggregator(false), _aggregator_port(kDefaultAggregatorPort),
       _reset_epoch(0), _exports(0)
 {
@@ -41,7 +44,8 @@ CoopIPRateMonitor::~CoopIPRateMonitor()
 int
 CoopIPRateMonitor::configure(Vector<String> &conf, ErrorHandler *errh)
 {
-    String type, aggregator, export_mode = "ALL", fold_units = "UPSTREAM";
+    String type, aggregator, export_mode = "ALL", fold_units = "UPSTREAM", format = "V1";
+    uint32_t router_id = 0, boot_id = 0, max_payload = multops::telemetry::kDefaultMaxPayload;
     uint32_t ratio_fixed = 0x10000;
     int64_t thresh = 0;
     uint32_t memory_kb = 0;
@@ -60,6 +64,10 @@ CoopIPRateMonitor::configure(Vector<String> &conf, ErrorHandler *errh)
         .read("EXPORT", WordArg(), export_mode)
         .read("FOLD_UNITS", WordArg(), fold_units)
         .read("SEED", seed)
+        .read("FORMAT", WordArg(), format)
+        .read("ROUTER_ID", router_id)
+        .read("BOOT_ID", boot_id).read_status(_boot_id_set)
+        .read("MAX_PAYLOAD", max_payload)
         .complete() < 0)
         return -1;
 
@@ -73,12 +81,20 @@ CoopIPRateMonitor::configure(Vector<String> &conf, ErrorHandler *errh)
     if (ratio_fixed == 0 || ratio_fixed > 0x10000)
         return errh->error("RATIO must be in (0, 1]");
 
-    if (export_mode.upper() == "ALL")
-        _export_mode = multops::CollectMode::AllActive;
-    else if (export_mode.upper() == "LEAVES")
-        _export_mode = multops::CollectMode::LeavesOnly;
-    else
-        return errh->error("EXPORT should be ALL or LEAVES");
+    _ex_cfg = multops::telemetry::ExporterConfig();
+    if (!multops::telemetry::parse_export_mode(export_mode.c_str(), &_ex_cfg.export_mode))
+        return errh->error("EXPORT should be ALL, LEAVES or PARTITION");
+    _export_mode = multops::telemetry::collect_mode_for(_ex_cfg.export_mode);
+    if (!multops::telemetry::parse_format(format.c_str(), &_ex_cfg.format))
+        return errh->error("FORMAT should be V1 or PAPER");
+    if (max_payload < multops::telemetry::kHeaderV1Size + multops::telemetry::kRecordV1Size
+        || max_payload > 65507)
+        return errh->error("MAX_PAYLOAD must be between 104 and 65507");
+    _ex_cfg.router_id = router_id;
+    _ex_cfg.boot_id = boot_id;
+    _ex_cfg.max_payload = max_payload;
+    _ex_cfg.count_unit = _count_packets ? multops::telemetry::CountUnit::Packets
+                                        : multops::telemetry::CountUnit::Bytes;
 
     _config = multops::MultopsConfig();
     if (fold_units.upper() == "UPSTREAM")
@@ -115,25 +131,36 @@ CoopIPRateMonitor::configure(Vector<String> &conf, ErrorHandler *errh)
 }
 
 int
-CoopIPRateMonitor::initialize(ErrorHandler *)
+CoopIPRateMonitor::initialize(ErrorHandler *errh)
 {
     _tree = new multops::MultopsTree(_config, _clock);
     _reset_epoch = _clock.now_epoch();
+    if (!_boot_id_set) {
+        std::random_device rd;
+        _ex_cfg.boot_id = rd();
+    }
+    if (_have_aggregator) {
+        _sender = new multops::UdpSender();
+        std::string err;
+        if (!_sender->open(ntohl(_aggregator_addr.addr()), _aggregator_port, &err))
+            return errh->error("cannot open telemetry socket: %s", err.c_str());
+        _exporter = new multops::telemetry::TelemetryExporter(_ex_cfg, *_sender);
+    }
+    _last_export = Timestamp::now();
     _timer.initialize(this);
     if (_interval_msec)
         _timer.schedule_after_msec(_interval_msec);
-    if (_have_aggregator)
-        click_chatter("%s: AGGREGATOR %s:%u configured; UDP export is not implemented "
-                      "until Phase 3 (snapshots are kept in the 'snapshot' handler)",
-                      declaration().c_str(), _aggregator_addr.unparse().c_str(),
-                      _aggregator_port);
     return 0;
 }
 
 void
 CoopIPRateMonitor::cleanup(CleanupStage)
 {
+    delete _exporter;
+    delete _sender;
     delete _tree;
+    _exporter = 0;
+    _sender = 0;
     _tree = 0;
 }
 
@@ -174,16 +201,24 @@ CoopIPRateMonitor::pull(int port)
     return p;
 }
 
-// Paper Sec. 4.2: collect_stats_recursive() + send_stats_packet(). In Phase 2
-// the collected records are kept as a snapshot; Phase 3 adds the sender.
+// Paper Sec. 4.2: collect_stats_recursive() + send_stats_packet().
 void
 CoopIPRateMonitor::do_export()
 {
     _lock.acquire();
+    uint64_t unc_fwd = _tree->window_uncounted(multops::Direction::Forward);
+    uint64_t unc_rev = _tree->window_uncounted(multops::Direction::Reverse);
     _snapshot = _tree->collect_stats(_export_mode, true);
     _snapshot_time = Timestamp::now();
     ++_exports;
     _lock.release();
+
+    Timestamp elapsed = _snapshot_time - _last_export;
+    _last_export = _snapshot_time;
+    if (_exporter)
+        _exporter->export_interval(_snapshot, unc_fwd, unc_rev,
+                                   static_cast<uint32_t>(elapsed.msecval()),
+                                   static_cast<uint64_t>(_snapshot_time.usecval()));
 }
 
 void
@@ -206,12 +241,12 @@ CoopIPRateMonitor::read_handler(Element *e, void *thunk)
         break;
     case h_snapshot:
         sa << "# export " << m->_exports << " at " << m->_snapshot_time << '\n';
-        sa << "prefix,leaf,fwd_rate,rev_rate,fwd_count,rev_count\n";
+        sa << "prefix,leaf,fwd_rate,rev_rate,fwd_count,rev_count,residual\n";
         for (size_t i = 0; i < m->_snapshot.size(); ++i) {
             const multops::PrefixStats &r = m->_snapshot[i];
             sa << multops::prefix_to_string(r.prefix, r.prefix_len).c_str() << ','
                << (r.is_leaf ? 1 : 0) << ',' << r.fwd_rate << ',' << r.rev_rate << ','
-               << r.fwd_count << ',' << r.rev_count << '\n';
+               << r.fwd_count << ',' << r.rev_count << ',' << (r.is_residual ? 1 : 0) << '\n';
         }
         break;
     case h_stats:
@@ -227,6 +262,11 @@ CoopIPRateMonitor::read_handler(Element *e, void *thunk)
     case h_mem: sa << m->_tree->memory_bytes(); break;
     case h_memmax: sa << m->_tree->memmax_bytes(); break;
     case h_exports: sa << m->_exports; break;
+    case h_tx_datagrams: sa << (m->_exporter ? m->_exporter->total_datagrams() : 0); break;
+    case h_tx_bytes: sa << (m->_exporter ? m->_exporter->total_bytes() : 0); break;
+    case h_tx_failures: sa << (m->_exporter ? m->_exporter->total_send_failures() : 0); break;
+    case h_next_sequence: sa << (m->_exporter ? m->_exporter->next_sequence() : 0); break;
+    case h_next_interval: sa << (m->_exporter ? m->_exporter->next_interval_id() : 0); break;
     }
     m->_lock.release();
     return sa.take_string();
@@ -290,6 +330,11 @@ CoopIPRateMonitor::add_handlers()
     add_read_handler("mem", read_handler, h_mem);
     add_read_handler("memmax", read_handler, h_memmax);
     add_read_handler("exports", read_handler, h_exports);
+    add_read_handler("tx_datagrams", read_handler, h_tx_datagrams);
+    add_read_handler("tx_bytes", read_handler, h_tx_bytes);
+    add_read_handler("tx_failures", read_handler, h_tx_failures);
+    add_read_handler("next_sequence", read_handler, h_next_sequence);
+    add_read_handler("next_interval_id", read_handler, h_next_interval);
     add_write_handler("reset", write_handler, h_reset, Handler::BUTTON);
     add_write_handler("memmax", write_handler, h_memmax_w);
     add_write_handler("export", write_handler, h_export_now, Handler::BUTTON);

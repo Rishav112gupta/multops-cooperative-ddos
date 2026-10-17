@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <random>
+#include <set>
 
 #include "mini_test.hpp"
 #include "multops/multops_tree.hpp"
@@ -400,6 +401,129 @@ TEST(tree_collect_skips_fully_idle_counters) {
     clock.advance(500);                             // rate decays to 0
     CHECK(t.collect_stats(CollectMode::AllActive, true).empty());
     CHECK_EQ(t.counter_count(), 1u);                // counter still allocated
+}
+
+// ---------------------------------------------------------------- coverage (Phase 3)
+
+namespace {
+struct ModeSums {
+    uint64_t fwd = 0, rev = 0;
+};
+ModeSums sum_counts(const std::vector<PrefixStats> &v) {
+    ModeSums m;
+    for (auto &r : v) { m.fwd += r.fwd_count; m.rev += r.rev_count; }
+    return m;
+}
+}  // namespace
+
+TEST(partition_counts_equal_offered_units_every_window) {
+    // Randomised workload with expansion, cascade, folding and a memory limit.
+    // For every window: sum(partition counts) + uncounted == units offered.
+  // Second run uses a tiny raw byte limit so that root counters are refused.
+  for (std::size_t limit : {memmax_from_kb(100), static_cast<std::size_t>(8000)}) {
+    ManualClock clock;
+    MultopsTree t(cfg(40, limit), clock);
+    std::mt19937 rng(777);
+    uint64_t offered[2] = {0, 0}, total_uncounted = 0;
+    int windows = 0;
+    for (int step = 1; step <= 300000; ++step) {
+        uint32_t addr;
+        unsigned pick = static_cast<unsigned>(rng() % 10);
+        if (pick < 3) addr = (10u << 24) | 1u;                                    // hot host
+        else if (pick < 6) addr = (172u << 24) | (16u << 16) | static_cast<uint32_t>(rng() % 512);
+        else addr = static_cast<uint32_t>(rng());                                 // scattered
+        Direction d = (rng() & 1) ? Direction::Forward : Direction::Reverse;
+        uint32_t v = 1 + static_cast<uint32_t>(rng() % 3);
+        t.update(addr, d, v);
+        offered[static_cast<unsigned>(d)] += v;
+        if (rng() % 40 == 0) clock.advance(1);
+        if (step % 25000 == 0) {
+            uint64_t unc_f = t.window_uncounted(Direction::Forward);
+            uint64_t unc_r = t.window_uncounted(Direction::Reverse);
+            total_uncounted += unc_f + unc_r;
+            ModeSums m = sum_counts(t.collect_stats(CollectMode::Partition, true));
+            CHECK_EQ(m.fwd + unc_f, offered[0]);
+            CHECK_EQ(m.rev + unc_r, offered[1]);
+            offered[0] = offered[1] = 0;
+            ++windows;
+        }
+    }
+    CHECK_EQ(windows, 12);
+    CHECK_EQ(t.check_invariants(), std::string());
+    if (limit == 8000) CHECK(total_uncounted > 0);   // refusal path exercised
+    else CHECK_EQ(total_uncounted, 0u);
+  }
+}
+
+TEST(partition_records_are_unique_and_residuals_only_on_expanded_counters) {
+    ManualClock clock;
+    MultopsTree t(cfg(100), clock);
+    run(t, clock, {{ip("10.0.0.1"), Direction::Forward, 50}}, 250);        // below THRESH: /8 only
+    run(t, clock, {{ip("10.0.0.1"), Direction::Forward, 10000},
+                   {ip("10.0.0.2"), Direction::Forward, 300}}, 250);      // now expands
+    auto part = t.collect_stats(CollectMode::Partition, false);
+    std::set<std::pair<uint32_t, unsigned>> keys;
+    for (auto &r : part) {
+        CHECK(keys.insert({r.prefix, r.prefix_len}).second);
+        CHECK(!(r.is_leaf && r.is_residual));
+        CHECK(r.is_leaf || r.is_residual);
+    }
+    const PrefixStats *res8 = find(part, ip("10.0.0.0"), 8);
+    REQUIRE(res8 != nullptr);
+    CHECK(res8->is_residual);
+    CHECK(res8->fwd_count > 0);   // the pre-expansion traffic lives here
+}
+
+TEST(leaves_only_undercounts_and_all_overcounts_after_expansion) {
+    // The same window collected three ways (counts are not reset in between).
+    ManualClock clock;
+    MultopsTree t(cfg(100), clock);
+    uint64_t offered = 0;
+    for (int e = 0; e < 500; ++e) {
+        for (int p = 0; p < 8; ++p) { t.update(ip("10.0.0.1"), Direction::Forward, 1); ++offered; }
+        clock.advance(1);
+    }
+    ModeSums part = sum_counts(t.collect_stats(CollectMode::Partition, false));
+    ModeSums leaves = sum_counts(t.collect_stats(CollectMode::LeavesOnly, false));
+    ModeSums all = sum_counts(t.collect_stats(CollectMode::AllActive, false));
+    CHECK_EQ(part.fwd, offered);
+    CHECK(leaves.fwd < offered);        // packets before expansion are missing
+    CHECK(all.fwd > 3 * offered);       // same packets counted at 4 levels
+}
+
+TEST(partition_after_fold_moves_traffic_back_to_parent) {
+    ManualClock clock;
+    MultopsTree t(cfg(100), clock);
+    uint64_t offered = 0;
+    for (int e = 0; e < 500; ++e) {
+        for (int p = 0; p < 80; ++p) { t.update(ip("10.0.0.1"), Direction::Forward, 1); ++offered; }
+        clock.advance(1);
+    }
+    REQUIRE(t.table_count() == 4u);
+    for (int e = 0; e < 125 * 30; ++e) {   // flood stops; slow traffic in 10/8 keeps folding
+        if (e % 25 == 0) { t.update(ip("10.9.9.9"), Direction::Forward, 1); ++offered; }
+        clock.advance(1);
+    }
+    REQUIRE(t.table_count() == 1u);        // folded back to /8 within the window
+    auto part = t.collect_stats(CollectMode::Partition, true);
+    CHECK_EQ(sum_counts(part).fwd, offered);
+    REQUIRE(part.size() == 1u);
+    CHECK(part[0].is_leaf && part[0].prefix_len == 8);
+}
+
+TEST(uncounted_units_are_tracked_and_reset_per_window) {
+    ManualClock clock;
+    std::size_t limit = MultopsTree::table_bytes() + 1 * MultopsTree::counter_bytes();
+    MultopsTree t(cfg(1000000, limit), clock);
+    t.update(ip("1.0.0.1"), Direction::Forward, 5);
+    t.update(ip("2.0.0.1"), Direction::Forward, 7);     // refused at root
+    t.update(ip("3.0.0.1"), Direction::Reverse, 11);    // refused at root
+    CHECK_EQ(t.window_uncounted(Direction::Forward), 7u);
+    CHECK_EQ(t.window_uncounted(Direction::Reverse), 11u);
+    ModeSums m = sum_counts(t.collect_stats(CollectMode::Partition, true));
+    CHECK_EQ(m.fwd, 5u);
+    CHECK_EQ(t.window_uncounted(Direction::Forward), 0u);
+    CHECK_EQ(t.window_uncounted(Direction::Reverse), 0u);
 }
 
 // ---------------------------------------------------------------- sampling
