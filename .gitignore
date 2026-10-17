@@ -8,3 +8,8 @@ venv/
 build/
 .pytest_cache/
 .DS_Store
+
+# Paper kept local only (not to be published)
+AINA_2026.pdf
+paper/*.pdf
+build-*/
