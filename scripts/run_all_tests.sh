@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and run every test (Phases 2-4).
+# Build and run every test (Phases 2-5).
 #
 #   scripts/run_all_tests.sh                    # unit tests only
 #   scripts/run_all_tests.sh /path/to/click     # + upstream-EWMA diff test + Click tests
@@ -42,5 +42,7 @@ if [[ -n "$CLICK_SRC" ]]; then
     python3 tests/click/run_phase3_click.py "$CLICK_SRC/userlevel/click" "$LOGS"
     echo "== Click two-router aggregation (Phase 4, loopback only)"
     python3 tests/click/run_phase4_click.py "$CLICK_SRC/userlevel/click" "$LOGS"
+    echo "== Click controlled detection runs (Phase 5, loopback only, no mitigation)"
+    python3 tests/click/run_phase5_click.py "$CLICK_SRC/userlevel/click" "$LOGS"
 fi
 echo "== all tests passed"

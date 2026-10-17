@@ -1,0 +1,9 @@
+[PASS] C1_cooperative: click exited cleanly (rc=0, 44 datagrams)
+[PASS] C1_cooperative: proposal detects the flood in every scored window (TP=8, windows=8)
+[PASS] C1_cooperative: no false positives in either method
+[PASS] C2_granularity: click exited cleanly (rc=0, 44 datagrams)
+[PASS] C2_granularity: proposal detects the flood in every scored window (TP=7, windows=7)
+[PASS] C2_granularity: paper method flags the benign client, proposal does not (paper FP=7, proposal FP=0)
+[PASS] C3_mixed_prefix: click exited cleanly (rc=0, 44 datagrams)
+[PASS] C3_mixed_prefix: proposal detects the flood in every scored window (TP=8, windows=8)
+[PASS] C3_mixed_prefix: proposal marks the shared prefix ambiguous and reports collateral (ambiguous=8, collateral=8)

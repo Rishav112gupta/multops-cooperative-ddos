@@ -107,7 +107,14 @@ python3 -m experiments.phase4.run_phase4 --build build --out experiments/results
 
 The run is deterministic (seeded, simulated clocks) and takes a few seconds. It writes `phase4_results.json` and `phase4_results.md`. A test checks that the committed JSON reproduces exactly.
 
-## 6. Debugging tips
+## 6. Phase 5 detection evaluation
+
+```bash
+python3 -m experiments.phase5.run_phase5 --build build --out experiments/results/phase5   # ~12 s, deterministic
+python3 tests/click/run_phase5_click.py /path/to/click/userlevel/click experiments/results/phase5/click
+```
+
+## 7. Debugging tips
 
 | Problem | What to do |
 |---|---|

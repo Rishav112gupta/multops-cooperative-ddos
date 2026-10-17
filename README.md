@@ -11,8 +11,9 @@ The paper proposes a cooperative extension of MULTOPS. Click Modular Router inst
 | 1 | Repository & research audit | Done: [`docs/PHASE1_RESEARCH_AUDIT.md`](docs/PHASE1_RESEARCH_AUDIT.md) |
 | 2 | MULTOPS / IPRateMonitor re-implementation and verification | Done (approved): [`docs/PHASE2_MULTOPS_VERIFICATION.md`](docs/PHASE2_MULTOPS_VERIFICATION.md) |
 | 3 | UDP telemetry protocol (paper format + versioned V1 extension) | Done (approved): [`docs/PHASE3_TELEMETRY_VALIDATION.md`](docs/PHASE3_TELEMETRY_VALIDATION.md) |
-| 4 | Global state aggregation (paper Algorithm 2 vs. proposal) | Done, awaiting review: [`docs/PHASE4_AGGREGATION_ANALYSIS.md`](docs/PHASE4_AGGREGATION_ANALYSIS.md) |
-| 5–10 | Detection, enforcement, experiments, evaluation | Not started |
+| 4 | Global state aggregation (paper Algorithm 2 vs. proposal) | Done (approved): [`docs/PHASE4_AGGREGATION_ANALYSIS.md`](docs/PHASE4_AGGREGATION_ANALYSIS.md) |
+| 5 | Detection engine and validation (no mitigation) | Done, awaiting review: [`docs/PHASE5_DETECTION_VALIDATION.md`](docs/PHASE5_DETECTION_VALIDATION.md) |
+| 6–10 | Enforcement, experiments, evaluation | Not started |
 
 The authors' original source code is unavailable. This repository contains a **new implementation** written from the paper and from upstream Click's `IPRateMonitor`, the element the paper says it extended. It is not the authors' code, and results obtained with it are not a reproduction of the paper's results. The paper's reported results (100% detection, 0% false positives) remain unverified claims.
 
@@ -32,7 +33,7 @@ scripts/run_all_tests.sh /path/to/configured/click   # + sanitizers, valgrind, C
 multops/             Click-independent MULTOPS core library (C++14)
 click/elements/      Click elements (CoopIPRateMonitor; PolicyEnforcer in Phase 6)
 click/configs/       Click scripts for experiments (later phases)
-aggregator/          Python telemetry codec + receiver (Phase 3); aggregators (Phase 4)
+aggregator/          Python telemetry codec + receiver (Phase 3); aggregators (Phase 4); detection (Phase 5)
 experiments/         Deterministic simulations and their generated results
 tools/               Offline utilities (multops_replay, telemetry_vectors)
 tests/cpp/           C++ unit and differential tests

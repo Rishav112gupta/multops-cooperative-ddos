@@ -26,6 +26,7 @@ global state that the Phase 4 analysis compares with ground truth.
 
 from __future__ import annotations
 
+import functools
 import ipaddress
 import math
 from dataclasses import dataclass, field
@@ -37,6 +38,7 @@ Key = Tuple[str, int]          # (prefix, prefix_len)
 LEVELS = (8, 16, 24, 32)
 
 
+@functools.lru_cache(maxsize=1 << 16)
 def mask(prefix: str, length: int) -> str:
     """Prefix with host bits cleared, as a dotted string."""
     return str(ipaddress.IPv4Network(f"{prefix}/{length}", strict=False).network_address)
@@ -72,12 +74,16 @@ class PaperAggregator:
         self.period_s = period_s
         self.value = value
         self.start_s = start_s
-        self.index = 0
+        # Current window; set lazily from the first datagram so that absolute
+        # (Unix-time) clocks do not create ~1e9 empty windows.
+        self.index: Optional[int] = None
         self.state: Dict[Key, List[float]] = {}
         self.datagrams = 0
         self.closed: List[PaperWindow] = []
 
     def _close_through(self, t: float) -> None:
+        if self.index is None:
+            return
         while t >= self.start_s + (self.index + 1) * self.period_s:
             s = self.start_s + self.index * self.period_s
             self.closed.append(PaperWindow(self.index, s, s + self.period_s, self.state, self.datagrams))
@@ -86,6 +92,8 @@ class PaperAggregator:
 
     def ingest(self, records: Iterable, arrival_s: float) -> None:
         """records: V1 RecordV1 or paper PaperRecord objects from ONE datagram."""
+        if self.index is None:
+            self.index = math.floor((arrival_s - self.start_s) / self.period_s)
         self._close_through(arrival_s)
         self.datagrams += 1
         for r in records:

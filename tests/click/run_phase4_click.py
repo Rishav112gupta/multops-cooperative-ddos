@@ -76,7 +76,7 @@ def main():
 
     rx = TelemetryReceiver()
     prop = WindowedAggregator(1.0, expected_routers={1, 2}, align="sender", grace_s=0.5)
-    paper = PaperAggregator(1.0, value="rate", start_s=float(int(got[0][0])) if got else 0.0)
+    paper = PaperAggregator(1.0, value="rate")
     for arrival, d, src in got:
         h = decode_v1(d).header
         if h.router_id in (3, 4):

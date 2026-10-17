@@ -46,6 +46,7 @@ class Flow:
     path: List[Tuple[int, int]]                 # [(router_id, input_port)]
     segments: List[Tuple[float, float]]         # on-periods [(start_s, stop_s)]
     offset_s: float = 0.0                       # phase of the first packet
+    malicious: bool = False                     # ground-truth label (Phase 5)
 
 
 @dataclass
@@ -105,13 +106,20 @@ class Truth:
         self.window_s = window_s
         self.fwd = defaultdict(lambda: defaultdict(int))     # window -> addr -> count
         self.rev = defaultdict(lambda: defaultdict(int))
+        # Phase 5: packets of malicious flows, keyed like fwd/rev.
+        self.atk_fwd = defaultdict(lambda: defaultdict(int))
+        self.atk_rev = defaultdict(lambda: defaultdict(int))
 
     def add(self, flow: Flow, t_ms: int):
         w = int((t_ms / 1000.0) // self.window_s)
         if flow.kind == "request":
             self.fwd[w][flow.src] += 1
+            if flow.malicious:
+                self.atk_fwd[w][flow.src] += 1
         else:
             self.rev[w][flow.dst] += 1
+            if flow.malicious:
+                self.atk_rev[w][flow.dst] += 1
 
     def prefix(self, window: int, prefix: str, length: int) -> Tuple[int, int]:
         net = ipaddress.IPv4Network(f"{prefix}/{length}", strict=False)
